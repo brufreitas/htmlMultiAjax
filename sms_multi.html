@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Pred Stats</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="-1">
+<xscript type="text/javascript" src="/js/querystring2qs.js"></script>
+<script type="text/javascript" src="/js/jquery-1.11.0.min.js"></script>
+<script type="text/javascript" src="/js/DateTime.js"></script>
+<style type="text/css">
+body {
+  font-family: sans-serif;
+  font-size: 60%;
+}
+
+#SenderTemplate {
+  *display: none;
+}
+
+.Sender {
+  display: inline-block;
+  border: 2px solid darkblue;
+  background-color: rgb(248, 248, 248);
+  border-radius: 15px;
+  padding: 3px;
+  width: 250px;
+}
+
+.Sender label {
+  font-weight: bold;
+}
+
+.Sender p {
+  *border: 1px dotted red;
+  margin: 0px 2px;
+}
+
+.Sender span {
+  border: 1px dotted green;
+}
+
+.Sender .rm {
+  float: right;
+}
+
+.Sender .ms {
+  display: block;
+  border-radius: 5px;
+  border: 1px solid #CCC;
+  background-color: #FFF;
+  font-family: Consolas, 'Courier New', monospace;
+  padding: 3px 5px;
+}
+
+</style>
+
+<script type="text/javascript">
+  var runningOcultos = false;
+
+  $("body").on("click", ".rm", function() {
+    console.log(this.parentNode.parentNode);
+    this.parentNode.parentNode.remove();
+  });
+
+
+  $(document).ready(function () {
+    $('#Add').click(function(){
+      // var obj = $('#SenderTemplate div');
+      // var obj = Object.assign({}, document.querySelector('#SenderTemplate div'));
+      // console.log(obj);
+
+      var el = document.querySelector('#SenderTemplate div').cloneNode(true);
+
+      $(el).append('<span>aaaaa</span>')
+
+      $('body').append(el);
+    });
+
+  });
+
+
+  function listarOcultos () {
+
+    if (runningOcultos) {
+      return true;
+    }
+
+    if (arrDKsOcultos.length == 0) {
+      return true;
+    }
+
+    runningOcultos = true;
+
+    var objCampos = {
+      acao: 'getTotaisOcultos',
+      grupos: arrDKsOcultos.join(','),
+      dadosProd: qs['dadosProd'],
+    }
+    $.ajax ({
+      url: '/batch/pred_mostra_status_ajax.php',
+      data: objCampos,
+      type: 'POST',
+      dataType: 'json',
+      timeout: 10000,
+      beforeSend: function() {
+        runningOcultos = true;
+      },
+      error: function (XMLHttpRequest, textStatus, errorThrown) {
+        emErro = true;
+        qtdErro++;
+
+        lastMsg = 'Ocorreu um erro ao Listar Totais dos discadores Ocultos: [' + XMLHttpRequest.responseText + ']';
+      },
+      success: function (data, textStatus) {
+        console.log('OK');
+        console.log(data);
+        if (data.st_ret != 'OK') {
+          emErro = true;
+          qtdErro++;
+
+          lastMsg = 'Ocorreu um erro ao Listar Totais dos discadores Ocultos: [' + data.msg_ret + ']';
+        } else {
+
+          var dv = $('<div>');
+          for (var i = 0; i < data.dadosRamal.length; i++) {
+            var $sp = $('<span class="oculto">' + data.dadosRamal[i].grupo + '(' + data.dadosRamal[i].RLogQ + ')</span>');
+            $(dv).append($sp);
+          }
+
+
+          $('#dvOcultos').html(dv);
+        }
+      },
+      complete: function() {
+        var dt = new DateTime();
+        var DtHr = dt.formats.compound.mySQL;
+
+        $('#spMsg').html('[' + DtHr + ']:' + lastMsg);
+
+        if (emErro) {
+          $('#spMsg').addClass('dvErro');
+          $('#imIcoStatus').attr('src', '/callcenter/imagens/erro_18px.gif');
+        } else {
+          $('#dvMsgStatus').html('Ok');
+          if (qtdErro > 0) {
+            $('#imIcoStatus').attr('src', '/callcenter/imagens/alerta_18px.gif');
+          } else {
+            $('#imIcoStatus').attr('src', '/callcenter/imagens/check_18px.gif');
+          }
+        }
+        runningOcultos = false;
+      }
+    });
+  }
+
+</script>
+</head>
+<body>
+
+<button id="Add"> + </button>
+<div id="SenderTemplate">
+<div class="Sender">
+  <p><label>St:</label><span class="st">...</span><button class="rm"> - </button></p>
+  <p><label>Repre:</label><span class="rp">...</span><label>Grupo:</label><span class="gr">...</span><label>Fone:</label><span class="fn">...</span></p>
+  <p><span class="ms">CARLOS aguardamos sua visita na loja ! Aqui voce tem DINHEIRO EXTRA MESMO S/ MARGEM NO CONSIGNADO. Na hora H help!  08007022322</span></p>
+  <script>
+    setInterval(function () {
+      var d = new Date();
+      d = d.toJSON();
+      $('.st').html(d);
+    }, 1000);
+  </script>
+</div>
+</div>
+</body>
+</html>
