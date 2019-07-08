@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Pred Stats</title>
+<title>Multi Ajax</title>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="-1">
-<xscript type="text/javascript" src="/js/querystring2qs.js"></script>
-<script type="text/javascript" src="/js/jquery-1.11.0.min.js"></script>
-<script type="text/javascript" src="/js/DateTime.js"></script>
+<script type="text/javascript" src="node_modules/jquery/dist/jquery.min.js"></script>
 <style type="text/css">
 body {
   font-family: sans-serif;
-  font-size: 60%;
+  *font-size: 60%;
 }
 
 #SenderTemplate {
-  *display: none;
+  display: none;
+}
+
+#SendersContainer {
+  display: block;
+  *border: 1px dotted red;
 }
 
 .Sender {
@@ -55,28 +58,42 @@ body {
 
 </style>
 
-<script type="text/javascript">
-  var runningOcultos = false;
-
-  $("body").on("click", ".rm", function() {
-    console.log(this.parentNode.parentNode);
-    this.parentNode.parentNode.remove();
-  });
-
+<script>
+  var aCtr = {};
 
   $(document).ready(function () {
-    $('#Add').click(function(){
-      // var obj = $('#SenderTemplate div');
-      // var obj = Object.assign({}, document.querySelector('#SenderTemplate div'));
-      // console.log(obj);
+    $('body').on('click', '#SendersContainer .rm', function() {
+      var id = this.parentNode.parentNode.getAttribute('id');
+      clearInterval(aCtr[id].loopCtr);
+      aCtr[id].el.remove();
+      delete aCtr[id];
 
-      var el = document.querySelector('#SenderTemplate div').cloneNode(true);
-
-      $(el).append('<span>aaaaa</span>')
-
-      $('body').append(el);
+      $('#SendersQt').html(Object.keys(aCtr).length);
     });
 
+    $('#Add').click(function() {
+      var id = 'Sndr' + Math.floor(Math.random() * 10000000000);
+      var el = document.querySelector('#SenderTemplate div.Sender').cloneNode(true);
+      el.setAttribute('id', id);
+
+      $('#SendersContainer').append(el);
+
+      updateSender(id);
+      var loopCtr = setInterval(updateSender, 1000, id);
+
+      aCtr[id] = {
+        'loopCtr': loopCtr,
+        'el': el,
+      };
+
+      $('#SendersQt').html(Object.keys(aCtr).length);
+    });
+
+  });
+
+  var updateSender = (function (id) {
+    $('#' + id + '.Sender .st').html((new Date()).toJSON());
+    console.log(id);
   });
 
 
@@ -158,19 +175,14 @@ body {
 </head>
 <body>
 
-<button id="Add"> + </button>
+<button id="Add"> + </button><span id="SendersQt">0</span>
+<div id="SendersContainer"></div>
+
 <div id="SenderTemplate">
 <div class="Sender">
   <p><label>St:</label><span class="st">...</span><button class="rm"> - </button></p>
   <p><label>Repre:</label><span class="rp">...</span><label>Grupo:</label><span class="gr">...</span><label>Fone:</label><span class="fn">...</span></p>
   <p><span class="ms">CARLOS aguardamos sua visita na loja ! Aqui voce tem DINHEIRO EXTRA MESMO S/ MARGEM NO CONSIGNADO. Na hora H help!  08007022322</span></p>
-  <script>
-    setInterval(function () {
-      var d = new Date();
-      d = d.toJSON();
-      $('.st').html(d);
-    }, 1000);
-  </script>
 </div>
 </div>
 </body>
