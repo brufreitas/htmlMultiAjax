@@ -9,7 +9,7 @@
 <style type="text/css">
 body {
   font-family: sans-serif;
-  *font-size: 60%;
+  font-size: 10pt;
 }
 
 #SenderTemplate {
@@ -32,6 +32,7 @@ body {
 
 .Sender label {
   font-weight: bold;
+  margin-right: 2px;
 }
 
 .Sender p {
@@ -40,7 +41,8 @@ body {
 }
 
 .Sender span {
-  border: 1px dotted green;
+  *border: 1px dotted green;
+  margin-right: 2px;
 }
 
 .Sender .rm {
@@ -56,10 +58,23 @@ body {
   padding: 3px 5px;
 }
 
+#UltMsgs {
+  font-family: Consolas, 'Courier New', monospace;
+}
+
+#UltMsgs .sending {
+  background-color: rgb(255, 243, 136);
+}
+
+#UltMsgs .sent {
+  background-color: rgb(208, 253, 186);
+}
+
 </style>
 
 <script>
   var aCtr = {};
+  var qtdErro  = new Number(0);
 
   $(document).ready(function () {
     $('body').on('click', '#SendersContainer .rm', function() {
@@ -78,98 +93,211 @@ body {
 
       $('#SendersContainer').append(el);
 
-      updateSender(id);
       var loopCtr = setInterval(updateSender, 1000, id);
 
       aCtr[id] = {
         'loopCtr': loopCtr,
         'el': el,
+        'running': false,
       };
+
+      updateSender(id);
 
       $('#SendersQt').html(Object.keys(aCtr).length);
     });
 
+    setTimeout(saveMessages, 1000);
   });
 
   var updateSender = (function (id) {
-    $('#' + id + '.Sender .st').html((new Date()).toJSON());
-    console.log(id);
+    if (aCtr[id].running) return true;
+
+    getMessage (id);
+    // console.log(id);
   });
 
-
-  function listarOcultos () {
-
-    if (runningOcultos) {
-      return true;
-    }
-
-    if (arrDKsOcultos.length == 0) {
-      return true;
-    }
-
-    runningOcultos = true;
-
-    var objCampos = {
-      acao: 'getTotaisOcultos',
-      grupos: arrDKsOcultos.join(','),
-      dadosProd: qs['dadosProd'],
-    }
+  function getMessage (id) {
     $.ajax ({
-      url: '/batch/pred_mostra_status_ajax.php',
-      data: objCampos,
-      type: 'POST',
-      dataType: 'json',
-      timeout: 10000,
+      url: 'mock.php',
+      data: {
+        TipoMsg: "SMSMSG_V03",
+        Msg: "1|SMSMSG_V03|" + formatDate()
+      },
+      type: 'GET',
+      dataType: 'text',
+      timeout: 60000,
       beforeSend: function() {
-        runningOcultos = true;
+        aCtr[id].running = true;
+        $('#' + id + '.Sender .st').html('Ajax');
       },
       error: function (XMLHttpRequest, textStatus, errorThrown) {
-        emErro = true;
-        qtdErro++;
+        console.log('error');
+        // emErro = true;
+        // qtdErro++;
 
-        lastMsg = 'Ocorreu um erro ao Listar Totais dos discadores Ocultos: [' + XMLHttpRequest.responseText + ']';
+        lastMsg = 'Ocorreu um erro ao executar ajax: [' + textStatus + '], [' + errorThrown + '], [' + XMLHttpRequest.responseText + ']';
       },
       success: function (data, textStatus) {
-        console.log('OK');
-        console.log(data);
-        if (data.st_ret != 'OK') {
+        // console.log('OK');
+        // console.log(data);
+        if (data.substr(0, 3) != 'OK ') {
           emErro = true;
           qtdErro++;
 
-          lastMsg = 'Ocorreu um erro ao Listar Totais dos discadores Ocultos: [' + data.msg_ret + ']';
+          lastMsg = 'Resposta do ajax inválida: [' + data.msg_ret + ']';
+          $('#' + id + '.Sender .ms').html(lastMsg);
         } else {
 
-          var dv = $('<div>');
-          for (var i = 0; i < data.dadosRamal.length; i++) {
-            var $sp = $('<span class="oculto">' + data.dadosRamal[i].grupo + '(' + data.dadosRamal[i].RLogQ + ')</span>');
-            $(dv).append($sp);
-          }
+          data = data.substr(3);
+          lastMsg = data;
+
+          var cpos = data.split('|');
+
+          $('#UltMsgs').prepend('<p>' + data + '</p>');
+
+          $('#' + id + '.Sender .rp').html(cpos[1]);
+          $('#' + id + '.Sender .gr').html(cpos[2]);
+          $('#' + id + '.Sender .fn').html('(' + cpos[3] + ') ' + cpos[4].substr(0, 5) + '-' + cpos[4].substr(5));
+          $('#' + id + '.Sender .ms').html(cpos[5]);
+
+          // console.log(cpos);
+
+          // var dv = $('<div>');
+          // for (var i = 0; i < data.dadosRamal.length; i++) {
+          //   var $sp = $('<span class="oculto">' + data.dadosRamal[i].grupo + '(' + data.dadosRamal[i].RLogQ + ')</span>');
+          //   $(dv).append($sp);
+          // }
 
 
-          $('#dvOcultos').html(dv);
+          // $('#dvOcultos').html(dv);
         }
       },
       complete: function() {
-        var dt = new DateTime();
-        var DtHr = dt.formats.compound.mySQL;
+      //   var dt = new DateTime();
+      //   var DtHr = dt.formats.compound.mySQL;
 
-        $('#spMsg').html('[' + DtHr + ']:' + lastMsg);
+      //   $('#spMsg').html('[' + DtHr + ']:' + lastMsg);
 
-        if (emErro) {
-          $('#spMsg').addClass('dvErro');
-          $('#imIcoStatus').attr('src', '/callcenter/imagens/erro_18px.gif');
-        } else {
-          $('#dvMsgStatus').html('Ok');
-          if (qtdErro > 0) {
-            $('#imIcoStatus').attr('src', '/callcenter/imagens/alerta_18px.gif');
-          } else {
-            $('#imIcoStatus').attr('src', '/callcenter/imagens/check_18px.gif');
-          }
-        }
-        runningOcultos = false;
+      //   if (emErro) {
+      //     $('#spMsg').addClass('dvErro');
+      //     $('#imIcoStatus').attr('src', '/callcenter/imagens/erro_18px.gif');
+      //   } else {
+      //     $('#dvMsgStatus').html('Ok');
+      //     if (qtdErro > 0) {
+      //       $('#imIcoStatus').attr('src', '/callcenter/imagens/alerta_18px.gif');
+      //     } else {
+      //       $('#imIcoStatus').attr('src', '/callcenter/imagens/check_18px.gif');
+      //     }
+      //   }
+        $('#' + id + '.Sender .st').html('Waiting');
+        aCtr[id].running = false;
       }
     });
   }
+
+  function saveMessages() {
+
+    var dataToSend = [];
+    $('#UltMsgs p').not('.sent').each(function (index, value){
+      // console.log($(this).html());
+
+      dataToSend.push({
+        m: $(this).html()
+      });
+
+      $(this).addClass('sending');
+    });
+
+    if (dataToSend.length == 0) {
+      setTimeout(saveMessages, 1000);
+      return true;
+    }
+
+    // console.log(dataToSend);
+
+
+
+    $.ajax ({
+      url: 'mock2.php',
+      data: {
+        messages: dataToSend
+      },
+      type: 'POST',
+      dataType: 'json',
+      timeout: 60000,
+      beforeSend: function() {
+      },
+      error: function (XMLHttpRequest, textStatus, errorThrown) {
+        // console.log('error Sending Messages to Log');
+        // emErro = true;
+        // qtdErro++;
+
+        console.log('Error Sending Messages to Log: [' + textStatus + '], [' + errorThrown + '], [' + XMLHttpRequest.responseText + ']');
+      },
+      success: function (data, textStatus) {
+        // console.log(data);
+
+        $('#UltMsgs p.sending').addClass('sent').removeClass('sending');
+
+        // console.log('OK');
+        // console.log(data);
+        // if (data.substr(0, 3) != 'OK ') {
+        //   emErro = true;
+        //   qtdErro++;
+
+        //   lastMsg = 'Resposta do ajax inválida: [' + data.msg_ret + ']';
+        //   $('#' + id + '.Sender .ms').html(lastMsg);
+        // } else {
+
+        //   data = data.substr(3);
+        //   lastMsg = data;
+
+        //   var cpos = data.split('|');
+
+        //   $('#UltMsgs').prepend('<p>' + data + '</p>');
+
+        //   $('#' + id + '.Sender .rp').html(cpos[1]);
+        //   $('#' + id + '.Sender .gr').html(cpos[2]);
+        //   $('#' + id + '.Sender .fn').html('(' + cpos[3] + ') ' + cpos[4].substr(0, 5) + '-' + cpos[4].substr(5));
+        //   $('#' + id + '.Sender .ms').html(cpos[5]);
+
+        //   // console.log(cpos);
+
+        //   // var dv = $('<div>');
+        //   // for (var i = 0; i < data.dadosRamal.length; i++) {
+        //   //   var $sp = $('<span class="oculto">' + data.dadosRamal[i].grupo + '(' + data.dadosRamal[i].RLogQ + ')</span>');
+        //   //   $(dv).append($sp);
+        //   // }
+
+
+        //   // $('#dvOcultos').html(dv);
+        // }
+      },
+      complete: function() {
+        setTimeout(saveMessages, 1000);
+      }
+    });
+
+  }
+
+  function formatDate() {
+    var d = new Date(),
+        month = '' + (d.getMonth() + 1),
+        day = '' + d.getDate(),
+        year = d.getFullYear(),
+        hour = d.getHours(),
+        min = d.getMinutes(),
+        secs = d.getSeconds();
+
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+
+    if (hour.length < 2) hour = '0' + hour;
+    if (min.length < 2) min = '0' + min;
+    if (secs.length < 2) secs = '0' + secs;
+
+    return [year, month, day].join('-') + ' ' + [hour, min, secs].join(':');
+}
 
 </script>
 </head>
@@ -177,12 +305,14 @@ body {
 
 <button id="Add"> + </button><span id="SendersQt">0</span>
 <div id="SendersContainer"></div>
+<div id="UltMsgs"></div>
 
 <div id="SenderTemplate">
 <div class="Sender">
-  <p><label>St:</label><span class="st">...</span><button class="rm"> - </button></p>
-  <p><label>Repre:</label><span class="rp">...</span><label>Grupo:</label><span class="gr">...</span><label>Fone:</label><span class="fn">...</span></p>
-  <p><span class="ms">CARLOS aguardamos sua visita na loja ! Aqui voce tem DINHEIRO EXTRA MESMO S/ MARGEM NO CONSIGNADO. Na hora H help!  08007022322</span></p>
+  <p><label>St:</label><span class="st">Init</span><button class="rm"> - </button></p>
+  <p><label>Repre:</label><span class="rp">...</span></p>
+  <p><label>Grupo:</label><span class="gr">...</span><label>Fone:</label><span class="fn">...</span></p>
+  <p><span class="ms">...</span></p>
 </div>
 </div>
 </body>
