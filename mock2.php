@@ -1,8 +1,15 @@
 <?php
-print json_encode($_POST);
+// print json_encode($_POST);
 $qt = count($_POST["messages"]);
 
-$rand = rand(10, 50);
+$aux = 0;
+do {
+  usleep(1000 * rand(20, 50));
+  $aux += 10;
+} while($aux <= $qt);
 
-usleep(1000 * $qt * $rand);
+$ret = array(
+  "st" => "OK",
+);
+print json_encode($ret);
 ?>
