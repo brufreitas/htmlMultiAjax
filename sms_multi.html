@@ -10,6 +10,7 @@
 body {
   font-family: sans-serif;
   font-size: 8pt;
+  margin: 3px;
 }
 
 #SenderTemplate {
@@ -18,12 +19,12 @@ body {
 
 #SendersContainer {
   display: block;
-  border: 1px dotted red;
+  border: 0px dotted red;
 }
 
 .Sender {
   display: inline-table;
-  border: 2px solid darkblue;
+  border: 4px solid darkblue;
   background-color: rgb(248, 248, 248);
   border-radius: 15px;
   padding: 3px;
@@ -53,6 +54,7 @@ body {
 .Sender .ms {
   display: block;
   box-sizing: content-box;
+  overflow: hidden;
   height: 7em;
   border-radius: 5px;
   border: 1px solid #CCC;
@@ -65,12 +67,32 @@ body {
   font-family: Consolas, 'Courier New', monospace;
 }
 
+.Sender.stOk {
+  border-color: green !important;
+}
+
+.Sender.stError {
+  border-color: red !important;
+}
+
+.Sender.stSemSMS {
+  border-color: darkgray !important;
+}
+
+.Sender.stFetching {
+  border-color: orange !important;
+}
+
 #UltMsgs .sending {
   background-color: rgb(255, 243, 136);
 }
 
 #UltMsgs .sent {
   background-color: rgb(208, 253, 186);
+}
+
+#ErrorsContainer p {
+  background-color: rgb(255, 188, 188);
 }
 
 </style>
@@ -117,6 +139,11 @@ body {
   });
 
   function getMessage (id) {
+    var lastMsg = '';
+    var sleepTime = 10000;
+    var cssClass = '';
+    var emErro = false;
+
     $.ajax ({
       // url: 'mock.php',
       // url: '/callcenter/msgrec.php',
@@ -124,7 +151,8 @@ body {
       data: {
         TipoMsg: "SmsMsg_V03",
         Msg: "1|BuscaSms_V03|" + formatDate(),
-        thId: id
+        thId: id,
+        thQt: $('#SendersQt').html()
       },
       type: 'GET',
       dataType: 'text',
@@ -132,50 +160,48 @@ body {
       beforeSend: function() {
         this.startTime = performance.now();
         // aCtr[id].running = true;
-        $('#' + id + '.Sender .st').html('Ajax');
+        $('#' + id + '.Sender .st').html('Fetching');
+        $('#' + id + '.Sender .gr').html('');
+        $('#' + id + '.Sender .fn').html('');
+        $('#' + id + '.Sender .ms').html('');
+        $('#' + id + '.Sender').removeClass('stOk stError stSemSMS stFetching').addClass('stFetching');
       },
       error: function (XMLHttpRequest, textStatus, errorThrown) {
         console.log('error');
-        // emErro = true;
-        // qtdErro++;
 
         lastMsg = 'Ocorreu um erro ao executar ajax: [' + textStatus + '], [' + errorThrown + '], [' + XMLHttpRequest.responseText + ']';
+        sleepTime = 10000;
+        cssClass = 'Error';
+        emErro = true;
       },
       success: function (data, textStatus) {
-        // console.log('OK');
-        // console.log(data);
+        // console.log('ajax OK, data: `' + data + '`');
 
         if (data == 'NO SEM_SMS') {
+          lastMsg = 'Nenhum SMS para agora';
+          sleepTime = 8000;
+          cssClass = 'SemSMS';
+          emErro = false;
         } else if (data.substr(0, 3) != 'Ok ') {
-          emErro = true;
-          qtdErro++;
-
           lastMsg = 'Resposta do ajax inv·lida: [' + data + ']';
-          $('#' + id + '.Sender .ms').html(lastMsg);
+          sleepTime = 10000;
+          cssClass = 'Error';
+          emErro = true;
         } else {
 
           data = data.substr(3);
-          lastMsg = data;
 
           var cpos = data.split('|');
 
           $('#UltMsgs').prepend('<p>' + data + '</p>');
 
-          // $('#' + id + '.Sender .rp').html(cpos[1]);
           $('#' + id + '.Sender .gr').html(cpos[0]);
           $('#' + id + '.Sender .fn').html('(' + cpos[2] + ') ' + cpos[3].substr(0, 5) + '-' + cpos[3].substr(5));
-          $('#' + id + '.Sender .ms').html(cpos[6]);
 
-          // console.log(cpos);
-
-          // var dv = $('<div>');
-          // for (var i = 0; i < data.dadosRamal.length; i++) {
-          //   var $sp = $('<span class="oculto">' + data.dadosRamal[i].grupo + '(' + data.dadosRamal[i].RLogQ + ')</span>');
-          //   $(dv).append($sp);
-          // }
-
-
-          // $('#dvOcultos').html(dv);
+          lastMsg = cpos[6];
+          sleepTime = 4000;
+          cssClass = 'Ok';
+          emErro = false;
         }
       },
       complete: function() {
@@ -197,94 +223,73 @@ body {
       //     }
       //   }
         $('#' + id + '.Sender .st').html('Waiting (' + time + 'ms)');
-        aCtr[id].loopCtr = setTimeout(updateSender, 5000, id);
-        // aCtr[id].running = false;
+        $('#' + id + '.Sender .ms').html(lastMsg);
+
+        $('#' + id + '.Sender').removeClass('stOk stError stSemSMS stFetching').addClass('st' + cssClass);
+
+        if (emErro) {
+          $('#ErrorsContainer').prepend('<p>' + lastMsg + '</p>');
+        }
+
+        sleepTimeRand = Math.trunc(Math.random() * Math.trunc(sleepTime / 5)) - Math.trunc(sleepTime / 10);
+
+        aCtr[id].loopCtr = setTimeout(updateSender, sleepTime + sleepTimeRand, id);
       }
     });
   }
 
   function saveMessages() {
-
-    var dataToSend = [];
+    var qtAdd = 0;
     $('#UltMsgs p').not('.sent').each(function (index, value){
-      // console.log($(this).html());
-
-      dataToSend.push({
-        m: $(this).html()
-      });
-
-      $(this).addClass('sending');
+      $(this).addClass('sent');
+      qtAdd++;
     });
 
-    if (dataToSend.length == 0) {
-      setTimeout(saveMessages, 1000);
-      return true;
-    }
+    qtAnt = new Number($('#MsgSentQt').html());
 
-    // console.log(dataToSend);
+    $('#MsgSentQt').html(qtAnt + qtAdd);
 
 
+    $('#UltMsgs p.sent').slice(50).not().remove();
+    setTimeout(saveMessages, 1000);
 
-    $.ajax ({
-      url: 'mock2.php',
-      data: {
-        messages: dataToSend
-      },
-      type: 'POST',
-      dataType: 'json',
-      timeout: 60000,
-      beforeSend: function() {
-      },
-      error: function (XMLHttpRequest, textStatus, errorThrown) {
-        // console.log('error Sending Messages to Log');
-        // emErro = true;
-        // qtdErro++;
+    // var dataToSend = [];
+    // $('#UltMsgs p').not('.sent').each(function (index, value){
+    //   // console.log($(this).html());
 
-        console.log('Error Sending Messages to Log: [' + textStatus + '], [' + errorThrown + '], [' + XMLHttpRequest.responseText + ']');
-      },
-      success: function (data, textStatus) {
-        // console.log(data);
+    //   dataToSend.push({
+    //     m: $(this).html()
+    //   });
 
-        $('#UltMsgs p.sending').addClass('sent').removeClass('sending');
+    //   $(this).addClass('sending');
+    // });
 
-        // console.log('OK');
-        // console.log(data);
-        // if (data.substr(0, 3) != 'OK ') {
-        //   emErro = true;
-        //   qtdErro++;
+    // if (dataToSend.length == 0) {
+    //   setTimeout(saveMessages, 1000);
+    //   return true;
+    // }
 
-        //   lastMsg = 'Resposta do ajax inv√°lida: [' + data.msg_ret + ']';
-        //   $('#' + id + '.Sender .ms').html(lastMsg);
-        // } else {
-
-        //   data = data.substr(3);
-        //   lastMsg = data;
-
-        //   var cpos = data.split('|');
-
-        //   $('#UltMsgs').prepend('<p>' + data + '</p>');
-
-        //   $('#' + id + '.Sender .rp').html(cpos[1]);
-        //   $('#' + id + '.Sender .gr').html(cpos[2]);
-        //   $('#' + id + '.Sender .fn').html('(' + cpos[3] + ') ' + cpos[4].substr(0, 5) + '-' + cpos[4].substr(5));
-        //   $('#' + id + '.Sender .ms').html(cpos[5]);
-
-        //   // console.log(cpos);
-
-        //   // var dv = $('<div>');
-        //   // for (var i = 0; i < data.dadosRamal.length; i++) {
-        //   //   var $sp = $('<span class="oculto">' + data.dadosRamal[i].grupo + '(' + data.dadosRamal[i].RLogQ + ')</span>');
-        //   //   $(dv).append($sp);
-        //   // }
-
-
-        //   // $('#dvOcultos').html(dv);
-        // }
-      },
-      complete: function() {
-        setTimeout(saveMessages, 1000);
-      }
-    });
+    // // console.log(dataToSend);
+    // $.ajax ({
+    //   url: 'mock2.php',
+    //   data: {
+    //     messages: dataToSend
+    //   },
+    //   type: 'POST',
+    //   dataType: 'json',
+    //   timeout: 60000,
+    //   beforeSend: function() {
+    //   },
+    //   error: function (XMLHttpRequest, textStatus, errorThrown) {
+    //     console.log('Error Sending Messages to Log: [' + textStatus + '], [' + errorThrown + '], [' + XMLHttpRequest.responseText + ']');
+    //   },
+    //   success: function (data, textStatus) {
+    //     $('#UltMsgs p.sending').addClass('sent').removeClass('sending');
+    //   },
+    //   complete: function() {
+    //     setTimeout(saveMessages, 1000);
+    //   }
+    // });
 
   }
 
@@ -311,8 +316,11 @@ body {
 </head>
 <body>
 
-<button id="Add"> + </button><span id="SendersQt">0</span>
+<button id="Add"> + </button>
+<label>Threads:</label> <span id="SendersQt">0</span>
+<label>Messagens Enviadas:</label> <span id="MsgSentQt">0</span>
 <div id="SendersContainer"></div>
+<div id="ErrorsContainer"></div>
 <div id="UltMsgs"></div>
 
 <div id="SenderTemplate">
